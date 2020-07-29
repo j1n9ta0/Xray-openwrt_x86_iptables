@@ -1,6 +1,6 @@
 #!/bin/bash
 
-v2ray_server_host="pr.goflyway.xyz"
+v2ray_server_host="v2ray.proxy.com"
 v2ray_server_port="443"
 v2ray_server_users_id="e86c4339-f8bd-4645-a403-ccdb3deb95f6"
 v2ray_server_users_alterId="32"
