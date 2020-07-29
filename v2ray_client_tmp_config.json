@@ -1,0 +1,118 @@
+{
+    "log": {
+        "access": "none",
+        "error": "/var/log/v2ray_error.log",
+        "loglevel": "error"
+    },
+    "dns": {
+        "servers": [
+            {
+                "address": "208.67.220.220",
+                "port": 5353
+            },
+            {
+                "address": "1.1.1.1",
+                "port": 53
+            },
+            {
+                "address": "223.6.6.6",
+                "port": 53,
+                "domains": [
+                    "geosite:cn",
+                    "v2ray_server_host"
+                ]
+            },
+            "https+local://1.1.1.1/dns-query",
+            "localhost"
+        ]
+    },
+    "inbounds": [
+        {
+            "tag": "transparent",
+            "port": 12345,
+            "protocol": "dokodemo-door",
+            "settings": {
+                "network": "tcp,udp",
+                "followRedirect": true
+            },
+            "streamSettings": {
+                "sockopt": {
+                    "tproxy": "tproxy"
+                }
+            }
+        }
+    ],
+    "outbounds": [
+        {
+            "protocol": "vmess",
+            "settings": {
+                "vnext": [
+                    {
+                        "address": "v2ray_server_host",
+                        "port": v2ray_server_port,
+                        "users": [
+                            {
+                                "id": "v2ray_server_users_id",
+                                "alterId": v2ray_server_users_alterId
+                            }
+                        ]
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "ws",
+                "security": "tls",
+                "sockopt": {
+                    "mark": 255
+                }
+            },
+            "mux": {
+                "enabled": true
+            }
+        },
+        {
+            "tag": "direct",
+            "protocol": "freedom",
+            "streamSettings": {
+                "sockopt": {
+                    "mark": 255
+                }
+            }
+        },
+        {
+            "tag": "dns-handler",
+            "protocol": "dns",
+            "streamSettings": {
+                "sockopt": {
+                    "mark": 255
+                }
+            }
+        }
+    ],
+    "routing": {
+        "domainStrategy": "IPIfNonMatch",
+        "rules": [
+            {
+                "type": "field",
+                "inboundTag": "transparent",
+                "port": 53,
+                "network": "udp",
+                "outboundTag": "dns-handler"
+            },
+            {
+                "type": "field",
+                "domain": [
+                    "geosite:cn"
+                ],
+                "outboundTag": "direct"
+            },
+            {
+                "type": "field",
+                "ip": [
+                    "geoip:cn"
+                ],
+                "outboundTag": "direct"
+            }
+        ]
+    }
+}
