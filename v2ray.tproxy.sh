@@ -1,25 +1,22 @@
 #!/bin/bash
 
-ws_server_host="v2ray.proxy.com"
+ws_server_host="proxy.v2ray.com"
 ws_server_port="443"
-ws_server_users_id="e86c4339-f8bd-4645-a403-ccdb3deb95f6"
-ws_server_users_alterId="32"
+ws_server_users_id="186c4339-f8bd-4645-a403-ccdb3deb95f6"
 loglevel="info"
 
 function init() {
 
-    bash <(curl -L -s https://install.direct/go.sh)
-    systemctl disable v2ray
-    
+    bash <(curl -L -s https://raw.githubusercontent.com/v2fly/fhs-install-v2ray/master/install-release.sh)
+
 }
 
 function start() {
 
-    cat >/etc/v2ray/config.json <<EOF
+    #journalctl -f -u v2ray
+    cat >/usr/local/etc/v2ray/config.json <<EOF
 {
     "log": {       
-        "access": "none",
-        "error": "/root/v2ray_error.log",
         "loglevel": "$loglevel"
     },
     "dns": {
@@ -47,7 +44,7 @@ function start() {
     "inbounds": [
         {
             "tag": "dns-in",
-            "port": 5353,
+            "port": 53,
             "protocol": "dokodemo-door",
             "settings": {
                 "address": "208.67.220.220",
@@ -72,7 +69,7 @@ function start() {
     ],
     "outbounds": [
         {
-            "protocol": "vmess",
+            "protocol": "VLESS",
             "settings": {
                 "vnext": [
                     {
@@ -81,7 +78,7 @@ function start() {
                         "users": [
                             {
                                 "id": "$ws_server_users_id",
-                                "alterId": $ws_server_users_alterId
+                                "encryption": "none"
                             }
                         ]
                     }
@@ -95,7 +92,7 @@ function start() {
                 }
             },
             "mux": {
-                "enabled": false
+                "enabled": true
             }
         },
         {
@@ -173,7 +170,7 @@ EOF
 -A V2RAY_LOCALHOST -d 224.0.0.0/4 -j RETURN
 -A V2RAY_LOCALHOST -d 240.0.0.0/4 -j RETURN
 -A V2RAY_LOCALHOST -m mark --mark 0xff -j RETURN  
--A V2RAY_LOCALHOST -p udp -j MARK --set-mark 1 
+-A V2RAY_LOCALHOST -p udp --dport 53 -j MARK --set-mark 1 
 -A V2RAY_LOCALHOST -p tcp -j MARK --set-mark 1 
 -A V2RAY_NETWORK -d 0.0.0.0/8 -j RETURN
 -A V2RAY_NETWORK -d 10.0.0.0/8 -j RETURN
@@ -184,7 +181,7 @@ EOF
 -A V2RAY_NETWORK -d 224.0.0.0/4 -j RETURN
 -A V2RAY_NETWORK -d 240.0.0.0/4 -j RETURN
 -A V2RAY_NETWORK -m mark --mark 0xff -j RETURN
--A V2RAY_NETWORK -p udp -j TPROXY --on-port 12345 --tproxy-mark 1 
+-A V2RAY_NETWORK -p udp --dport 53 -j TPROXY --on-port 12345 --tproxy-mark 1 
 -A V2RAY_NETWORK -p tcp -j TPROXY --on-port 12345 --tproxy-mark 1 
 COMMIT
 EOF
@@ -202,7 +199,6 @@ function stop() {
 
     systemctl stop v2ray
 
-    rm -rf /root/v2ray*.log
 }
 
 case $1 in
