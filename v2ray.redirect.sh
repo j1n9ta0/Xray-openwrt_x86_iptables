@@ -1,25 +1,22 @@
 #!/bin/bash
 
-ws_server_host="v2ray.proxy.com"
+ws_server_host="proxy.v2ray.com"
 ws_server_port="443"
-ws_server_users_id="e86c4339-f8bd-4645-a403-ccdb3deb95f6"
-ws_server_users_alterId="32"
+ws_server_users_id="186c4339-f8bd-4645-a403-ccdb3deb95f6"
 loglevel="info"
 
 function init() {
 
-    bash <(curl -L -s https://install.direct/go.sh)
-    systemctl disable v2ray
-    
+    bash <(curl -L -s https://raw.githubusercontent.com/v2fly/fhs-install-v2ray/master/install-release.sh)
+
 }
 
 function start() {
 
-    cat >/etc/v2ray/config.json <<EOF
+    #journalctl -f -u v2ray
+    cat >/usr/local/etc/v2ray/config.json <<EOF
 {
     "log": {       
-        "access": "none",
-        "error": "/root/v2ray_error.log",
         "loglevel": "$loglevel"
     },
     "dns": {
@@ -47,7 +44,7 @@ function start() {
     "inbounds": [
         {
             "tag": "dns-in",
-            "port": 5353,
+            "port": 53,
             "protocol": "dokodemo-door",
             "settings": {
                 "address": "208.67.220.220",
@@ -67,7 +64,7 @@ function start() {
     ],
     "outbounds": [
         {
-            "protocol": "vmess",
+            "protocol": "VLESS",
             "settings": {
                 "vnext": [
                     {
@@ -76,7 +73,7 @@ function start() {
                         "users": [
                             {
                                 "id": "$ws_server_users_id",
-                                "alterId": $ws_server_users_alterId
+                                "encryption": "none"
                             }
                         ]
                     }
@@ -90,7 +87,7 @@ function start() {
                 }
             },
             "mux": {
-                "enabled": false
+                "enabled": true
             }
         },
         {
@@ -151,39 +148,7 @@ EOF
 
     ip route add local default dev lo table 100
     ip rule add fwmark 1 lookup 100
-    # # 代理局域网设备
-    # iptables -t nat -N V2RAY
-    # iptables -t nat -A V2RAY -d 0.0.0.0/8 -j RETURN
-    # iptables -t nat -A V2RAY -d 10.0.0.0/8 -j RETURN
-    # iptables -t nat -A V2RAY -d 127.0.0.0/8 -j RETURN
-    # iptables -t nat -A V2RAY -d 169.254.0.0/16 -j RETURN
-    # iptables -t nat -A V2RAY -d 172.16.0.0/12 -j RETURN
-    # iptables -t nat -A V2RAY -d 192.168.0.0/16 -j RETURN
-    # iptables -t nat -A V2RAY -d 224.0.0.0/4 -j RETURN
-    # iptables -t nat -A V2RAY -d 240.0.0.0/4 -j RETURN
-    # iptables -t nat -A V2RAY -p tcp -j RETURN -m mark --mark 0xff # 直连 SO_MARK 为 0xff 的流量(0xff 是 16 进制数，数值上等同与上面配置的 255)，此规则目的是避免代理本机(网关)流量出现回环问题
-    # iptables -t nat -A V2RAY -p tcp -j REDIRECT --to-ports 12345  # 其余流量转发到 12345 端口（即 V2Ray）
-    # iptables -t nat -A PREROUTING -p tcp -j V2RAY                 # 对局域网其他设备进行透明代理
-    # iptables -t nat -A OUTPUT -p tcp -j V2RAY                     # 对本机进行透明代理
-
-    # iptables -t mangle -N V2RAY
-    # iptables -t mangle -A V2RAY -d 0.0.0.0/8 -j RETURN
-    # iptables -t mangle -A V2RAY -d 10.0.0.0/8 -j RETURN
-    # iptables -t mangle -A V2RAY -d 127.0.0.0/8 -j RETURN
-    # iptables -t mangle -A V2RAY -d 169.254.0.0/16 -j RETURN
-    # iptables -t mangle -A V2RAY -d 172.16.0.0/12 -j RETURN
-    # iptables -t mangle -A V2RAY -d 192.168.0.0/16 -j RETURN
-    # iptables -t mangle -A V2RAY -d 224.0.0.0/4 -j RETURN
-    # iptables -t mangle -A V2RAY -d 240.0.0.0/4 -j RETURN
-    # iptables -t mangle -A V2RAY -p udp -j RETURN -m mark --mark 0xff
-    # iptables -t mangle -A V2RAY -p udp -j TPROXY --on-port 12345 --tproxy-mark 0x01/0x01
-    # iptables -t mangle -A PREROUTING -p udp -j V2RAY
-
-    # iptables -t mangle -N V2RAY_MARK
-    # iptables -t mangle -A V2RAY_MARK -p udp -j RETURN -m mark --mark 0xff
-    # iptables -t mangle -A V2RAY_MARK -p udp --dport 53 -j MARK --set-mark 1 #本机只代理53
-    # iptables -t mangle -A OUTPUT -p udp -j V2RAY_MARK
-
+    # --dport 53
     iptables-restore --noflush <<-EOF
 *mangle
 :V2RAY - 
@@ -199,7 +164,15 @@ EOF
 -A V2RAY -d 224.0.0.0/4 -j RETURN
 -A V2RAY -d 240.0.0.0/4 -j RETURN
 -A V2RAY -p udp -m mark --mark 0xff -j RETURN
--A V2RAY -p udp -j TPROXY --on-port 12345 --tproxy-mark 1
+-A V2RAY -p udp --dport 53 -j TPROXY --on-port 12345 --tproxy-mark 1
+-A V2RAY_MARK -d 0.0.0.0/8 -j RETURN
+-A V2RAY_MARK -d 10.0.0.0/8 -j RETURN
+-A V2RAY_MARK -d 127.0.0.0/8 -j RETURN
+-A V2RAY_MARK -d 169.254.0.0/16 -j RETURN
+-A V2RAY_MARK -d 172.16.0.0/12 -j RETURN
+-A V2RAY_MARK -d 192.168.0.0/16 -j RETURN
+-A V2RAY_MARK -d 224.0.0.0/4 -j RETURN
+-A V2RAY_MARK -d 240.0.0.0/4 -j RETURN
 -A V2RAY_MARK -p udp -m mark --mark 0xff -j RETURN
 -A V2RAY_MARK -p udp --dport 53 -j MARK --set-mark 1
 COMMIT
@@ -233,7 +206,6 @@ function stop() {
 
     systemctl stop v2ray
 
-    rm -rf /root/v2ray*.log
 }
 
 case $1 in
