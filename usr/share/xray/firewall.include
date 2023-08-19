@@ -1,0 +1,3 @@
+#!/bin/sh
+/etc/init.d/xray restart
+exit 0

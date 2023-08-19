@@ -1,0 +1,3 @@
+mijia cloud
+api.miwifi.com
+courier.push.apple.com

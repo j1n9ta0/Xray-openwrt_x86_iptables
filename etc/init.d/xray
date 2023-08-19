@@ -1,0 +1,261 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2008 OpenWrt.org
+
+START=99
+USE_PROCD=1
+# PROCD_DEBUG=1
+
+PROG_NAME="xray"
+PROG_BIN="$(which "$PROG_NAME")"
+PROG_UCI_CONF="xray"
+PROG_UCI_SECTION="xray"
+
+validate_section() {
+  uci_validate_section "$PROG_UCI_CONF" "$PROG_UCI_SECTION" "${1}" \
+    'enabled:bool' \
+    'server_host:host' \
+    'server_port:port' \
+    'authorized_id:string' \
+    'src_bypass:string' \
+    'configfile:string' \
+    'domainsexcluded_file:string' \
+    'host_file:string' \
+    'assetfile:string' \
+    'loglevel:string' \
+    'logfile_access:string' \
+    'logfile_error:string'
+}
+
+config_init() {
+  validate_section "${1}" || {
+    echo "validation failed"
+    return 1
+  }
+}
+
+config_gen_init() {
+
+  xray_config=$(
+    cat <<-EOF
+{
+  "log": {
+    "access": "$logfile_access",
+    "error": "$logfile_error",
+    "loglevel": "$loglevel"
+  },
+  "dns": {
+    "hosts": {},
+    "servers": [
+      "114.114.114.114",
+      "223.5.5.5",
+      "https+local://8.8.8.8/dns-query",
+      "quic+local://94.140.14.140"
+    ]
+  },
+  "inbounds": [
+    {
+      "port": 12345,
+      "protocol": "dokodemo-door",
+      "settings": {
+        "network": "tcp",
+        "followRedirect": true
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls"
+        ],
+        "domainsExcluded": []
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "direct",
+      "protocol": "freedom",
+      "streamSettings": {
+        "sockopt": {
+          "mark": 255
+        }
+      }
+    },
+    {
+      "tag": "proxy",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "$server_host",
+            "port": $server_port,
+            "users": [
+              {
+                "id": "$authorized_id",
+                "encryption": "none",
+                "flow": "xtls-rprx-vision"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "tls",
+        "tlsSettings": {
+          "fingerprint": "chrome"
+        },
+        "sockopt": {
+          "mark": 255
+        }
+      }
+    }
+
+  ],
+  "routing": {
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+      {
+        "type": "field",
+        "domain": [
+          "geosite:private",
+          "geosite:apple-cn",
+          "geosite:google-cn",
+          "geosite:tld-cn",
+          "geosite:category-games@cn"
+        ],
+        "outboundTag": "direct"
+      },
+      {
+        "type": "field",
+        "domain": [
+          "geosite:geolocation-!cn"
+        ],
+        "outboundTag": "proxy"
+      },
+      {
+        "type": "field",
+        "ip": [
+          "geoip:hk",
+          "geoip:tw",
+          "geoip:jp",
+          "geoip:kr",
+          "geoip:cn"
+        ],
+        "outboundTag": "direct"
+      },
+      {
+        "type": "field",
+        "protocol": "bittorrent",
+        "outboundTag": "direct"
+      }
+    ]
+  }
+}
+EOF
+  )
+  # geosite:geolocation-!cn
+  # geosite:gfw
+  if [ "$(ifstatus wan | jsonfilter -q -e "@.up")" = "true" ]; then
+    xray_config=$(echo $xray_config | jq --arg jq_var "$(ifstatus wan | jsonfilter -q -e "@['ipv4-address'][0].address")" '.dns+={clientIp:$jq_var}')
+  fi
+
+  while read host; do
+    xray_config=$(echo $xray_config | jq --arg jq_var_1 "$(echo $host | awk '{print $1}')" --arg jq_var_2 "$(echo $host | awk '{print $2}')" '.dns.hosts+={($jq_var_1):$jq_var_2}')
+  done <$host_file
+
+  while read domain; do
+    xray_config=$(echo $xray_config | jq --arg jq_var "$domain" '.inbounds[0].sniffing.domainsExcluded+=[$jq_var]')
+  done <$domainsexcluded_file
+
+  echo $xray_config | jq >$configfile
+
+}
+
+firewall_init() {
+  dst_bypass="
+  0.0.0.0/8 
+	10.0.0.0/8 
+	100.64.0.0/10 
+	127.0.0.0/8 
+	169.254.0.0/16 
+	172.16.0.0/12 
+	192.0.0.0/24 
+	192.0.2.0/24 
+	192.88.99.0/24 
+	192.168.0.0/16 
+	198.51.100.0/24 
+	203.0.113.0/24 
+	224.0.0.0/4 
+	240.0.0.0/4 
+	255.255.255.255/32 
+"
+
+  ipset create XRAY_SRC_BYPASS hash:ip
+  if [ -n "$src_bypass" ]; then
+    for i in $src_bypass; do ipset add XRAY_SRC_BYPASS $i; done
+  fi
+
+  ipset create XRAY_DST_BYPASS hash:net
+  for i in $dst_bypass; do ipset add XRAY_DST_BYPASS $i; done
+
+  iptables -t nat -N XRAY_TCP_ALL
+  iptables -t nat -A XRAY_TCP_ALL -m set --match-set XRAY_SRC_BYPASS src -j RETURN
+  iptables -t nat -A XRAY_TCP_ALL -m set --match-set XRAY_DST_BYPASS dst -j RETURN
+  iptables -t nat -A XRAY_TCP_ALL -m mark --mark 0xff -j RETURN
+  iptables -t nat -A XRAY_TCP_ALL -p tcp -j REDIRECT --to-ports 12345
+  iptables -t nat -A PREROUTING -j XRAY_TCP_ALL
+  iptables -t nat -A OUTPUT -j XRAY_TCP_ALL
+
+}
+firewall_flush() {
+
+  iptables-save --counters | grep -v "XRAY" | iptables-restore --counters
+
+  ipset destroy XRAY_SRC_BYPASS 2>/dev/null
+  ipset destroy XRAY_DST_BYPASS 2>/dev/null
+
+}
+
+start_service() {
+
+  [ -z "$PROG_BIN" ] && {
+    echo "$PROG_BIN not found!"
+    exit 1
+  }
+
+  config_load "$PROG_UCI_CONF"
+  config_foreach config_init "$PROG_UCI_SECTION"
+  [ "$enabled" -eq 0 ] && return
+
+  config_gen_init
+
+  procd_open_instance
+  # procd_set_param limits nofile="65535 65535"
+  # procd_set_param limits core="unlimited"
+
+  procd_set_param env XRAY_LOCATION_ASSET="$assetfile"
+  procd_set_param command "$PROG_BIN"
+  procd_append_param command run
+  procd_append_param command -c "$configfile"
+  procd_set_param stderr 1 # same for stderr
+  procd_set_param stdout 1 # forward stdout of the command to logread -f
+  procd_set_param respawn
+  procd_close_instance
+
+  firewall_flush
+  firewall_init && logger -p notice -t "$PROG_NAME" "Init firewall due to $PROG_NAME start"
+
+}
+
+stop_service() {
+
+  firewall_flush && logger -p notice -t "$PROG_NAME" "Flush firewall due to $PROG_NAME stop"
+
+}
+
+service_triggers() {
+
+  procd_add_reload_trigger "$PROG_UCI_CONF"
+  procd_add_validation validate_section
+
+}
