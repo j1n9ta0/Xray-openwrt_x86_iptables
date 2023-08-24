@@ -244,7 +244,6 @@ start_service() {
   procd_set_param respawn
   procd_close_instance
 
-  firewall_flush
   firewall_init && logger -p notice -t "$PROG_NAME" "Init firewall due to $PROG_NAME start"
 
 }
