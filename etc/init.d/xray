@@ -205,7 +205,7 @@ firewall_init() {
   iptables -t nat -A XRAY_TCP_ALL -m set --match-set XRAY_DST_BYPASS dst -j RETURN
   iptables -t nat -A XRAY_TCP_ALL -m mark --mark 0xff -j RETURN
   iptables -t nat -A XRAY_TCP_ALL -p tcp -j REDIRECT --to-ports 12345
-  iptables -t nat -A PREROUTING -j XRAY_TCP_ALL
+  iptables -t nat -A PREROUTING -i br-lan -j XRAY_TCP_ALL
   iptables -t nat -A OUTPUT -j XRAY_TCP_ALL
 
 }
