@@ -13,3 +13,6 @@
 
 主要还是 dokodemo-door 中的 sniffing 功能，当接收到数据后，如果是 geolocation-!cn 的地址，使用 proxy 转发，就算 DNS 不正确也无所谓，XRAY 会放到远程去处理，由于远程没有污染，所以顺利访问，并将结果返回。
 这里的 DNS 组件，只起个分流作用，建议设置最快的服务器减少延迟，这里可以设置解析规则，将 geolocation-!cn 使用 DOH 解析以减少 DNS 泄露。
+
+-   感谢：https://github.com/Loyalsoldier/v2ray-rules-dat
+-   感谢：https://github.com/xtls/xray-core
