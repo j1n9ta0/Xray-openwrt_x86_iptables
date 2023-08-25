@@ -1,7 +1,5 @@
 # OpenWRT X86 软路由 XRAY XTLS 方式的透明代理
 
-## 注：
-
 当 TCP 数据进入 12345 端口后，会判断进入的是域名还是 IP 地址。
 
 - 国内域名：google@cn，apple@cn，microsoft@cn等域名直接从 direct 转发
