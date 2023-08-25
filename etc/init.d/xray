@@ -118,10 +118,10 @@ config_gen_init() {
         "type": "field",
         "domain": [
           "geosite:private",
-          "geosite:apple-cn",
-          "geosite:google-cn",
-          "geosite:win-update",
           "geosite:category-cas",
+          "geosite:apple@cn",
+          "geosite:google@cn",
+          "geosite:microsoft@cn",
           "geosite:category-games@cn",
           "geosite:cn"
         ],
