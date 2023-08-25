@@ -4,10 +4,10 @@
 
 当 TCP 数据进入 12345 端口后，会判断进入的是域名还是 IP 地址。
 
-- 国内域名，google-cn，apple-cn 等域名直接从 direct 转发
-- 国外域名，geolocation-!cn 从 proxy 转发
-- 其他域名，包括 geosite 里面没有匹配到的，和没有收录进来的域名，默认从 direct 转发。
-  XRAY 的 DNS 模块只起根据 ip 分流作用。
+- 国内域名：google@cn，apple@cn，microsoft@cn等域名直接从 direct 转发
+- 国外域名：geolocation-!cn 从 proxy 转发
+- 其他域名：包括 geosite 里面没有匹配到的，和没有收录进来的域名，默认从 direct 转发。
+注1：XRAY 的 DNS 模块只起根据 ip 分流作用。
 
 ##### 为什么不需要劫持 DNS 请求就能访问 geolocation-!cn 的网站，例如 google？
 
