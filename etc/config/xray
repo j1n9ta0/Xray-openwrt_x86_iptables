@@ -1,13 +1,13 @@
 
 config xray
 	option enabled '1'
-	option authorized_id '985330a9-eed6-82b7-474a-1eea71695abd'
+	option authorized_id 'e86c4339-1111-2222-3333-ccdb3deb95f6'
 	option configfile '/var/etc/xray.json'
 	option assetfile '/etc/xray'
 	option logfile_access 'none'
 	option src_bypass '192.168.0.201-192.168.0.254'
 	option loglevel 'info'
-	option server_host 'xray.com'
+	option server_host 'v2fly.com'
 	option server_port '443'
 	option domainsexcluded_file '/etc/xray/domainsExcluded.txt'
 	option host_file '/etc/xray/hosts.txt'

@@ -46,7 +46,7 @@ config_gen_init() {
   "dns": {
     "hosts": {},
     "servers": [
-      "114.114.114.114",
+      "119.29.29.29",
       "223.5.5.5",
       "https+local://8.8.8.8/dns-query",
       "quic+local://94.140.14.140"
@@ -65,8 +65,7 @@ config_gen_init() {
         "destOverride": [
           "http",
           "tls"
-        ],
-        "domainsExcluded": []
+        ]
       }
     }
   ],
@@ -165,10 +164,6 @@ EOF
     xray_config=$(echo $xray_config | jq --arg jq_var_1 "$(echo $host | awk '{print $1}')" --arg jq_var_2 "$(echo $host | awk '{print $2}')" '.dns.hosts+={($jq_var_1):$jq_var_2}')
   done <$host_file
 
-  while read domain; do
-    xray_config=$(echo $xray_config | jq --arg jq_var "$domain" '.inbounds[0].sniffing.domainsExcluded+=[$jq_var]')
-  done <$domainsexcluded_file
-
   echo $xray_config | jq >$configfile
 
 }
@@ -200,13 +195,13 @@ firewall_init() {
   ipset create XRAY_DST_BYPASS hash:net
   for i in $dst_bypass; do ipset add XRAY_DST_BYPASS $i; done
 
-  iptables -t nat -N XRAY_TCP_ALL
-  iptables -t nat -A XRAY_TCP_ALL -m set --match-set XRAY_SRC_BYPASS src -j RETURN
-  iptables -t nat -A XRAY_TCP_ALL -m set --match-set XRAY_DST_BYPASS dst -j RETURN
-  iptables -t nat -A XRAY_TCP_ALL -m mark --mark 0xff -j RETURN
-  iptables -t nat -A XRAY_TCP_ALL -p tcp -j REDIRECT --to-ports 12345
-  iptables -t nat -A PREROUTING -i br-lan -j XRAY_TCP_ALL
-  iptables -t nat -A OUTPUT -j XRAY_TCP_ALL
+  iptables -t nat -N XRAY_TCP
+  iptables -t nat -A XRAY_TCP -m set --match-set XRAY_SRC_BYPASS src -j RETURN
+  iptables -t nat -A XRAY_TCP -m set --match-set XRAY_DST_BYPASS dst -j RETURN
+  iptables -t nat -A XRAY_TCP -m mark --mark 0xff -j RETURN
+  iptables -t nat -A XRAY_TCP -p tcp -j REDIRECT --to-ports 12345
+  iptables -t nat -A prerouting_lan_rule -j XRAY_TCP
+  iptables -t nat -A OUTPUT -j XRAY_TCP
 
 }
 firewall_flush() {
