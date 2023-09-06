@@ -54,6 +54,8 @@ config_gen_init() {
   },
   "inbounds": [
     {
+      "tag": "transparent",
+      "address": "127.0.0.1",
       "port": 12345,
       "protocol": "dokodemo-door",
       "settings": {
@@ -65,7 +67,8 @@ config_gen_init() {
         "destOverride": [
           "http",
           "tls"
-        ]
+        ],
+        "domainsExcluded": []
       }
     }
   ],
@@ -163,6 +166,10 @@ EOF
   while read host; do
     xray_config=$(echo $xray_config | jq --arg jq_var_1 "$(echo $host | awk '{print $1}')" --arg jq_var_2 "$(echo $host | awk '{print $2}')" '.dns.hosts+={($jq_var_1):$jq_var_2}')
   done <$host_file
+
+  while read domain; do
+    xray_config=$(echo $xray_config | jq --arg jq_var "$domain" '.inbounds[0].sniffing.domainsExcluded+=[$jq_var]')
+  done <$domainsexcluded_file
 
   echo $xray_config | jq >$configfile
 
